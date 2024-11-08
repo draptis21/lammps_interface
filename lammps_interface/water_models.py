@@ -25,3 +25,9 @@ TIP5P_atoms = {
         "HW":(1.008, 0.0, 0.0, 0.2410),
         "X":(0.00000001, 0.0, 0.0,-0.2410)
         }
+
+#CH4_UA_atoms
+CH4_UA_atoms = {
+#FF_type  at_mass  sig[A]  eps[kcal/mol]  charge
+        "Cch4":(12.0107, 3.73, 0.29, 0.0)
+                }
