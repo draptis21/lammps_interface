@@ -3210,7 +3210,7 @@ class UFF4MOF(ForceField):
         """
 
         # fourier/simple
-        sf = ['linear', 'trigonal-planar', 'square-planar', 'octahedral']
+        sf = ['llammps_interfaceinear', 'trigonal-planar', 'square-planar', 'octahedral']
         a, b, c, data = angle
         angle_type = self.uff_angle_type(b)
 
@@ -3952,9 +3952,6 @@ class CH4_UA_atoms(ForceField):
         return st
 
     def detect_ff_terms(self):
-        """Water consists of O and H, not too difficult.
-
-        """
         for node, data in self.graph.nodes_iter2(data=True):
             if data['element'] == "C":
                 fftype = "Cch4"
