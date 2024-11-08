@@ -3915,6 +3915,56 @@ class Dubbeldam(ForceField):
                         " with element: '%s'"%(data['element']))
                 sys.exit()
 
+class CH4_UA_atoms(ForceField):
+    def __init__(self, graph=None, **kwargs):
+        self.pair_in_data = True
+        # override existing arguments with kwargs
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        if (graph is not None):
+            self.graph = graph
+            self.detect_ff_terms()
+            self.compute_force_field_terms()
+
+
+    def pair_terms(self, node, data, cutoff, **kwargs):
+        """
+        Lennard - Jones potential for Cch4.
+
+        cutoff should be set to 9 angstroms, but this may
+        be unrealistic.
+        Also, no long range treatment of coulombic
+        term! Otherwise
+        this isn't technically the SPC/E model but
+        Ewald should be used for periodic materials.
+
+        """
+        data['pair_potential'] = PairPotential.LjCutCoulLong()
+        data['pair_potential'].eps = CH4_UA_atoms[data['force_field_type']][2]
+        data['pair_potential'].sig = CH4_UA_atoms[data['force_field_type']][1]
+        data['pair_potential'].cutoff = cutoff
+
+    def special_commands(self):
+        st = [
+              "%-15s %s"%("pair_modify", "tail yes")
+             ]
+        return st
+
+    def detect_ff_terms(self):
+        """Water consists of O and H, not too difficult.
+
+        """
+        for node, data in self.graph.nodes_iter2(data=True):
+            if data['element'] == "C":
+                fftype = "Cch4"
+            else:
+                print("ERROR: could not find the proper force field type for atom %i"%(data['index'])+
+                        " with element: '%s'"%(data['element']))
+                sys.exit()
+            data['force_field_type'] = fftype
+            data['mass'] = CH4_UA_atoms[fftype][0]
+            data['charge'] = CH4_UA_atoms[fftype][3]
 
 class SPC_E(ForceField):
     def __init__(self, graph=None, **kwargs):
