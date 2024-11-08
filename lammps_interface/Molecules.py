@@ -472,7 +472,7 @@ class EPM2_CO2(CO2):
         self.add_edge(1, 3, key=self.number_of_edges()+1, **kw)
         self.compute_all_angles()
         
-class CH4_UA_atoms(CH4):
+class CH4_UA_atoms(Molecule):
     def __init__(self, **kwargs):
         """ Elementary Physical Model 2 (EPM2) of Harris & Yung
         (JPC 1995 99 12021) dx.doi.org/10.1021/j100031a034
