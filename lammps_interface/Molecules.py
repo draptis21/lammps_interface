@@ -472,7 +472,7 @@ class EPM2_CO2(CO2):
         self.add_edge(1, 3, key=self.number_of_edges()+1, **kw)
         self.compute_all_angles()
         
-class CH4_UA_atoms(Molecule):
+class UA_CH4(Molecule):
     def __init__(self, **kwargs):
         
         nx.Graph.__init__(self, **kwargs)
