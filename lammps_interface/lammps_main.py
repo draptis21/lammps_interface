@@ -484,6 +484,8 @@ class LammpsSimulation(object):
                     mff = mff[:-6] # remove _Water from end of name
                 if ff[-3:] == "CO2":
                     self.add_co2_model(ngraph, ff)
+                if ff[-3:] == "CH4":
+                    self.add_CH4_model(ngraph,ff)
                 p = getattr(ForceFields, mff)(graph=self.subgraphs[m],
                                          cutoff=self.options.cutoff,
                                          h_bonding=h_bonding)
