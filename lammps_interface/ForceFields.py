@@ -3915,7 +3915,7 @@ class Dubbeldam(ForceField):
                         " with element: '%s'"%(data['element']))
                 sys.exit()
 
-class CH4_UA_atoms(ForceField):
+class UA_CH4(ForceField):
     def __init__(self, graph=None, **kwargs):
         self.pair_in_data = True
         # override existing arguments with kwargs
