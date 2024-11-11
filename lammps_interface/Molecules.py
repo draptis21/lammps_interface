@@ -2,7 +2,7 @@
 Molecule class.
 """
 import numpy as np
-from .water_models import SPC_E_atoms, TIP3P_atoms, TIP4P_atoms, TIP5P_atoms
+from .water_models import SPC_E_atoms, TIP3P_atoms, TIP4P_atoms, TIP5P_atoms, CH4_UA_atoms
 from .gas_models import EPM2_atoms
 from .structure_data import MolecularGraph
 import networkx as nx
@@ -474,10 +474,7 @@ class EPM2_CO2(CO2):
         
 class CH4_UA_atoms(Molecule):
     def __init__(self, **kwargs):
-        """ Elementary Physical Model 2 (EPM2) of Harris & Yung
-        (JPC 1995 99 12021) dx.doi.org/10.1021/j100031a034
-
-        """
+        
         nx.Graph.__init__(self, **kwargs)
         MolecularGraph.__init__(self)
         self.rigid = True
@@ -487,10 +484,6 @@ class CH4_UA_atoms(Molecule):
             element = ff_type[0]
             if idx == 0:
                 coord = self.C_coord
-            elif idx == 1:
-                coord = self.O_coord[0]
-            elif idx == 2:
-                coord = self.O_coord[1]
             data = ({"mass":CH4_UA_atoms[ff_type][0],
                      "charge":CH4_UA_atoms[ff_type][3],
                      "molid":1,
@@ -503,17 +496,3 @@ class CH4_UA_atoms(Molecule):
                      "cartesian_coordinates":coord
                      })
             self.add_node(idx+1, **data)
-
-        flag = "1_555"
-        kw = {}
-        kw.update({'length':self.RCO})
-        kw.update({'weight': 1})
-        kw.update({'order': 2})
-        kw.update({'symflag': flag})
-        kw.update({'potential': None})
-
-        self.sorted_edge_dict.update({(1,2): (1, 2), (2, 1):(1, 2)})
-        self.sorted_edge_dict.update({(1,3): (1, 3), (3, 1):(1, 3)})
-        self.add_edge(1, 2, key=self.number_of_edges()+1, **kw)
-        self.add_edge(1, 3, key=self.number_of_edges()+1, **kw)
-        self.compute_all_angles()
