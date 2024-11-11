@@ -495,6 +495,190 @@ class LammpsSimulation(object):
         for node in graph.nodes():
             graph.nodes[node]['molid'] = graph.molecule_id
 
+def molecule_template(self, mol):
+        """ Construct a molecule template for
+        reading and insertions in a LAMMPS simulation.
+        This combines two classes which have
+        been separated conceptually - ForceField and
+        Molecules.
+        For some molecules, the force field is implicit
+        within the structure (e.g. TIP5P_Water molecule
+        must be used with the TIP5P ForceField).
+        But one can imagine cases where this is not true
+        (alkanes? CO2?).
+        """
+        # no error checking here, it is assumed that the user
+        # knows which force field to pair with which molecule
+        # I'm not sure what would happen if there were a mismatch
+        # but hopefully error-checking elsewhere in the code
+        # will catch these things.
+        molecule = getattr(Molecules, mol)()
+        if self.options.mol_ff is None:
+            mol_ff = self.options.force_field
+
+        elif self.options.mol_ff.endswith("_Water"):
+            # parse if _Water is at the end to get the force
+            # fields for various water models.
+            mol_ff = mol[:-6]
+        else:
+            # just take the general force field used on the
+            # framework
+            mol_ff = self.options.mol_ff
+        #TODO(pboyd): Check how h-bonding is handeled at this level
+        ff = getattr(ForceFields, mol_ff)(graph=molecule,
+                                     cutoff=self.options.cutoff)
+
+        # add the unique potentials to the unique_dictionaries.
+        self.unique_atoms(molecule)
+        self.unique_bonds(molecule)
+        self.unique_angles(molecule)
+        self.unique_dihedrals(molecule)
+        self.unique_impropers(molecule)
+        # somehow update atom, bond, angle, dihedral, improper etc. types to
+        # include atomic species that don't exist yet..
+        self.template_molecule = molecule
+        template_file = "%s.molecule"%molecule.__class__.__name__
+        file = open(template_file, 'w')
+        file.writelines(molecule.str(atom_types=self.atom_ff_type))
+        file.close()
+        print('Molecule template file written as %s'%template_file)
+
+    def add_co2_model(self, ngraph, ff):
+        size = ngraph.number_of_nodes()
+        if size < 3 or size > 3:
+            print("Error: cannot assign %s "%(ff) +
+                  "to molecule of size %i, with "%(size)+
+                  "atoms (%s)"%(", ".join([ngraph.node[kk]['element'] for
+                                           kk in ngraph.nodes()])))
+            print("If this is a CO2 molecule with pre-existing "+
+                    "dummy atoms for a particular force field, "+
+                    "please remove them and re-run this code.")
+            sys.exit()
+        for node in ngraph.nodes():
+            if ngraph.node[node]['element'] == "C":
+                catom = ngraph.node[node]
+            elif ngraph.node[node]['element'] == "O":
+                try:
+                    oatom1
+                    o2id = node
+                    oatom2 = ngraph.node[node]
+                except NameError:
+                    o1id = node
+                    oatom1 = ngraph.node[node]
+
+        co2 = getattr(Molecules, ff)()
+        co2.approximate_positions(C_pos  = catom['cartesian_coordinates'],
+                                  O_pos1 = oatom1['cartesian_coordinates'],
+                                  O_pos2 = oatom2['cartesian_coordinates'])
+
+        # update the co2 atoms in the graph with the force field molecule
+        mol_c = deepcopy(co2.node[1])
+        mol_o1 = deepcopy(co2.node[2])
+        mol_o2 = deepcopy(co2.node[3])
+        # hackjob - get rid of the angle data on the carbon, so that
+        # the framework indexed values for each oxygen remain with the carbon atom.
+        mol_c.pop('angles')
+        catom.update(mol_c)
+        oatom1.update(mol_o1)
+        oatom2.update(mol_o2)
+        #for node in ngraph.nodes():
+        #    #data = deepcopy(ngraph.node[node]) # doesn't work - some of the data is
+        #                                        # specific to the molecule in the
+        #                                        # framework.
+
+        #    if data['element'] == "C":
+        #        cid = node
+        #        ngraph.node[node] = co2.node[1].copy()
+        #    elif data['element'] == "O":
+        #        try:
+        #            otm1
+        #            ngraph.node[node] = co2.node[3].copy()
+        #        except NameError:
+        #            otm1 = node
+        #            ngraph.node[node] = co2.node[2].copy()
+
+    def add_water_model(self, ngraph, ff):
+        size = ngraph.number_of_nodes()
+        if size < 3 or size > 3:
+            print("Error: cannot assign %s "%(ff) +
+                  "to molecule of size %i, with "%(size)+
+                  "atoms (%s)"%(", ".join([ngraph.node[kk]['element'] for
+                                           kk in ngraph.nodes()])))
+            print("If this is a water molecule with pre-existing "+
+                    "dummy atoms for a particular force field, "+
+                    "please remove them and re-run this code.")
+            sys.exit()
+        for node in ngraph.nodes():
+            if ngraph.node[node]['element'] == "O":
+                oid = node
+                oatom = ngraph.node[node]
+            elif ngraph.node[node]['element'] == "H":
+                try:
+                    hatom1
+                    h2id = node
+                    hatom2 = ngraph.node[node]
+                except NameError:
+                    h1id = node
+                    hatom1 = ngraph.node[node]
+
+        h2o = getattr(Molecules, ff)()
+        h2o.approximate_positions(O_pos  = oatom['cartesian_coordinates'],
+                                  H_pos1 = hatom1['cartesian_coordinates'],
+                                  H_pos2 = hatom2['cartesian_coordinates'])
+
+        # update the water atoms in the graph with the force field molecule
+        mol_o = deepcopy(h2o.node[1])
+        mol_h1 = deepcopy(h2o.node[2])
+        mol_h2 = deepcopy(h2o.node[3])
+        # hackjob - get rid of the angle data on the carbon, so that
+        # the framework indexed values for each oxygen remain with the carbon atom.
+        try:
+            mol_o.pop('angles')
+        except KeyError:
+            pass
+
+        oatom.update(mol_o)
+        hatom1.update(mol_h1)
+        hatom2.update(mol_h2)
+        # update the water atoms in the graph with the force field molecule
+        #for node in ngraph.nodes():
+        #    data = deepcopy(ngraph.node[node])
+        #    if data['element'] == "O":
+        #        oid = node
+        #        ngraph.node[node] = h2o.node[1].copy()
+        #    elif data['element'] == "H":
+        #        try:
+        #            htm1
+        #            ngraph.node[node] = h2o.node[3].copy()
+        #        except NameError:
+        #            htm1 = node
+        #            ngraph.node[node] = h2o.node[2].copy()
+
+        # add dummy particles
+        for dx in h2o.nodes():
+            if dx > 3:
+                self.increment_graph_sizes()
+                os = ngraph.original_size
+                ngraph.add_node(os, **h2o.node[dx])
+                ngraph.add_edge(oid, os, order=1.,
+                                weight=1.,
+                                length=h2o.Rdum,
+                                symflag='1_555',
+                                )
+                ngraph.sorted_edge_dict.update({(oid, os): (oid, os)})
+                ngraph.sorted_edge_dict.update({(os, oid): (oid, os)})
+        # compute new angles between dummy atoms
+        ngraph.compute_angles()
+
+
+    def increment_graph_sizes(self, inc=1):
+        self.graph.original_size += inc
+        for mtype in list(self.molecule_types.keys()):
+            for m in self.molecule_types[mtype]:
+                graph = self.subgraphs[m]
+                graph.original_size += 1
+
+    
     def compute_simulation_size(self):
 
         if self.options.orthogonalize:
