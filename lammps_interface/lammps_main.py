@@ -1129,7 +1129,7 @@ class LammpsSimulation(object):
         # general catch-all for extra force field commands needed.
         inp_str += "\n".join(list(set(self.special_commands)))
         inp_str += "\n"
-        inp_str += "%-15s %s\n"%("box tilt","large")
+        inp_str += "%-15s %s\n"%("box tilt","small")
         inp_str += "%-15s %s\n"%("read_data","data.%s"%(self.name))
         if(not self.pair_in_data):
             inp_str += "#### Pair Coefficients ####\n"
