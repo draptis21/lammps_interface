@@ -3,7 +3,7 @@ Molecule class.
 """
 import numpy as np
 from .water_models import SPC_E_atoms, TIP3P_atoms, TIP4P_atoms, TIP5P_atoms
-from .gas_models import EPM2_atoms
+from .gas_models import EPM2_atoms, EPM2_angles
 from .structure_data import MolecularGraph
 import networkx as nx
 
@@ -199,6 +199,23 @@ class CO2(Molecule):
             elif n == 3:
                 self.node[n]['cartesian_coordinates'] = self.O_coord[1]
 
+class CH4(Molecule):
+
+    def __init__(self, C_coord=None):
+        # Initialize the position of the carbon (representing the whole methane molecule)
+        self.C_coord = np.array(C_coord if C_coord is not None else [0.0, 0.0, 0.0])
+
+    def approximate_position(self, C_pos=None):
+        """Set the approximate position of the carbon atom (C),
+        representing the methane molecule in a united-atom model.
+        """
+        # If a new position is provided, update the central carbon position
+        if C_pos is not None:
+            self.C_coord = np.array(C_pos)
+
+        # For UA methane, no other coordinates are needed, as the whole molecule is treated as one atom.
+        print("Methane UA position:", self.C_coord)
+		
 class Water(Molecule):
     """Water parent class, containing functions applicable
     to all water models.
@@ -433,7 +450,7 @@ class EPM2_CO2(CO2):
 
         """
         nx.Graph.__init__(self, **kwargs)
-        MolecularGraph.__init__(self)
+       # MolecularGraph.__init__(self)
         self.rigid = True
         self.C_coord = np.array([0., 0., 0.])
 
@@ -471,3 +488,96 @@ class EPM2_CO2(CO2):
         self.add_edge(1, 2, key=self.number_of_edges()+1, **kw)
         self.add_edge(1, 3, key=self.number_of_edges()+1, **kw)
         self.compute_all_angles()
+
+class New(CH4):
+    def __init__(self, **kwargs):
+        """ Elementary Physical Model 2 (EPM2) of Harris & Yung
+        (JPC 1995 99 12021) dx.doi.org/10.1021/j100031a034
+
+        """
+        nx.Graph.__init__(self, **kwargs)
+       # MolecularGraph.__init__(self)
+        self.rigid = True
+        self.C_coord = np.array([0., 0., 0.])
+
+        for idx, ff_type in enumerate(["Cch4"]):
+            element = ff_type[0]
+            if idx == 0:
+                coord = self.C_coord
+            data = ({"mass":New[ff_type][0],
+                     "charge":New[ff_type][3],
+                     "molid":1,
+                     "element":element,
+                     "force_field_type":ff_type,
+                     "h_bond_donor":False,
+                     "h_bond_potential":None,
+                     "tabulated_potential":None,
+                     "table_potential":None,
+                     "cartesian_coordinates":coord
+                     })
+            self.add_node(idx+1, **data)
+			
+
+# Define the Ammonia (NH3) class with EPM2 model structure
+class NH3(Molecule):
+    RNH = 1.012  # Approximate N-H bond length in angstroms for ammonia
+
+    def __init__(self, **kwargs):
+        """ Elementary Physical Model for Ammonia (NH3)
+        RNH is the approximate nitrogen-hydrogen bond length.
+        """
+        super().__init__(**kwargs)
+        
+        # Set up ammonia molecule as rigid and define nitrogen's initial coordinates
+        self.rigid = True
+        self.N_coord = np.array([0.0, 0.0, 0.0])
+        
+        # Define ammonia atoms with positions (using nitrogen at origin and hydrogen positions approx)
+        hydrogen_positions = [
+            [self.RNH, 0.0, 0.0],                   # First hydrogen position
+            [-self.RNH / 2, self.RNH * np.sqrt(3)/2, 0.0],  # Second hydrogen position
+            [-self.RNH / 2, -self.RNH * np.sqrt(3)/2, 0.0]  # Third hydrogen position
+        ]
+
+        ammonia_atoms = {
+            "N": {"mass": 14.0, "charge": 0.0, "force_field_type": "N"},
+            "H": {"mass": 1.0, "charge": 0.410, "force_field_type": "H"}
+        }
+
+        # Add nitrogen node
+        self.add_node(1, **{
+            "mass": ammonia_atoms["N"]["mass"],
+            "charge": ammonia_atoms["N"]["charge"],
+            "molid": 1,
+            "element": "N",
+            "force_field_type": ammonia_atoms["N"]["force_field_type"],
+            "cartesian_coordinates": self.N_coord
+        })
+
+        # Add hydrogen nodes
+        for idx, pos in enumerate(hydrogen_positions, start=2):
+            self.add_node(idx, **{
+                "mass": ammonia_atoms["H"]["mass"],
+                "charge": ammonia_atoms["H"]["charge"],
+                "molid": 1,
+                "element": "H",
+                "force_field_type": ammonia_atoms["H"]["force_field_type"],
+                "cartesian_coordinates": np.array(pos)
+            })
+
+        # Define edge properties for N-H bonds
+        edge_properties = {
+            "length": self.RNH,
+            "weight": 1,
+            "order": 1,
+            "symflag": "1_555",
+            "potential": None
+        }
+
+        # Connect nitrogen to each hydrogen with an edge
+        for idx in range(2, 5):
+            self.add_edge(1, idx, key=self.number_of_edges() + 1, **edge_properties)
+
+    def compute_all_angles(self):
+        """ Placeholder function to compute bond angles, if necessary."""
+        pass  # Angle computation logic can be added as needed for further modeling

@@ -4403,7 +4403,7 @@ class TIP5P(ForceField):
             data['mass'] = TIP5P_atoms[fftype][0]
             data['charge'] = TIP5P_atoms[fftype][3]
 
-class EPM2_CO2(ForceField):
+class EPM2_CO2(ForceField, CO2):
 
     def __init__(self, graph=None, **kwargs):
         self.pair_in_data = True
@@ -4510,3 +4510,137 @@ class EPM2_CO2(ForceField):
             data['force_field_type'] = fftype
             data['mass'] = EPM2_atoms[fftype][0]
             data['charge'] = EPM2_atoms[fftype][3]
+
+
+
+class New(ForceField, CH4):
+    # Class attribute with force field parameters for "Cch4" (carbon in methane)
+    force_field_params = {
+        "Cch4": [12.0, 3.73, 0.2941, 0.0]  # [mass, sigma, epsilon, charge]
+    }
+
+    def __init__(self, graph=None, **kwargs):
+        self.pair_in_data = True
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        if graph is not None:
+            self.graph = graph
+            self.graph.rigid = True
+            self.detect_ff_terms()
+            self.compute_force_field_terms()
+            
+    def pair_terms(self, node, data, cutoff, **kwargs):
+        """
+        Lennard-Jones potential for Cx and Ox.
+        """
+        data['pair_potential'] = PairPotential.LjCutCoulLong()
+        fftype = data['force_field_type']
+        data['pair_potential'].eps = self.force_field_params[fftype][2]
+        data['pair_potential'].sig = self.force_field_params[fftype][1]
+        data['pair_potential'].cutoff = cutoff
+
+    def special_commands(self):
+        st = [
+              "%-15s %s" % ("pair_modify", "tail yes")
+             ]
+        return st
+
+    def detect_ff_terms(self):
+        """CH4 consists of only C, so assign force field type accordingly.
+        """
+        for node, data in self.graph.nodes_iter2(data=True):
+            if data['element'] == "C":
+                fftype = "Cch4"
+            else:
+                print("ERROR: could not find the proper force field type for atom %i" % (data['index']) +
+                      " with element: '%s'" % (data['element']))
+                sys.exit()
+
+            # Assign force field parameters
+            data['force_field_type'] = fftype
+            data['mass'] = self.force_field_params[fftype][0]
+            data['charge'] = self.force_field_params[fftype][3]
+			
+import numpy as np
+import networkx as nx
+
+class NH3 (ForceField):
+    # Force field parameters for nitrogen (N) and hydrogen (H) in ammonia
+    force_field_params = {
+        "N": [14.0, 3.420, 185.0, -0.5],  # [mass, sigma, epsilon, charge]
+        "H": [1.0, 0.0, 0.0, 0.33]       # [mass, sigma, epsilon, charge]
+    }
+
+    RNH = 1.012  # Approximate N-H bond length in angstroms for ammonia
+    HNH_angle = 107.0  # Approximate H-N-H bond angle in degrees
+
+    def __init__(self, graph=None, **kwargs):
+        """EPM2 model for Ammonia (NH3)"""
+        self.pair_in_data = True
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        if graph is not None:
+            self.graph = graph
+            self.graph.rigid = True
+            self.detect_ff_terms()
+            self.compute_force_field_terms()
+
+    def pair_terms(self, node, data, cutoff, **kwargs):
+        """
+        Lennard-Jones potential for N and H in ammonia.
+        """
+        data['pair_potential'] = PairPotential.LjCutCoulLong()
+        fftype = data['force_field_type']
+        data['pair_potential'].eps = self.force_field_params[fftype][2]
+        data['pair_potential'].sig = self.force_field_params[fftype][1]
+        data['pair_potential'].cutoff = cutoff
+
+    def special_commands(self):
+        """Special commands for the pair potential."""
+        return ["%-15s %s" % ("pair_modify", "tail yes")]
+
+    def detect_ff_terms(self):
+        """Assign force field types and parameters for nitrogen and hydrogen."""
+        for node, data in self.graph.nodes_iter2(data=True):
+            element = data['element']
+            if element == "N":
+                fftype = "N"
+            elif element == "H":
+                fftype = "H"
+            else:
+                print(f"ERROR: No force field type found for atom {data['index']} with element: '{element}'")
+                sys.exit()
+
+            # Assign force field parameters from class attribute dictionary
+            data['force_field_type'] = fftype
+            data['mass'] = self.force_field_params[fftype][0]
+            data['charge'] = self.force_field_params[fftype][3]
+
+    def bond_term(self, edge):
+        """Define the harmonic bond potential for N-H bonds."""
+        n1, n2, data = edge
+        data['potential'] = BondPotential.Harmonic()
+        data['potential'].R0 = self.RNH
+        data['potential'].K = 450000.0  # Strong bond potential for rigidity
+        data['potential'].special_flag = "rigid"
+        return 1
+
+    def angle_term(self, angle):
+        """Define the harmonic angle potential for H-N-H angles."""
+        a, b, c, data = angle
+        data['potential'] = AnglePotential.Harmonic()
+        data['potential'].theta0 = np.radians(self.HNH_angle)  # Convert to radians
+        data['potential'].K = 620.0  # Angle stiffness
+        data['potential'].special_flag = "rigid"
+        return 1
+
+    def dihedral_term(self, dihedral):
+        """No dihedral potential for ammonia."""
+        return None
+
+    def improper_term(self, improper):
+        """No improper potential for ammonia."""
+        return None
+

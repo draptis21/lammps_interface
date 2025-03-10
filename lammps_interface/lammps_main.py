@@ -53,7 +53,7 @@ class LammpsSimulation(object):
         self.fix_shake = {}
         self.fix_rigid = {}
         self.kspace_style = False
-
+		
     def set_MDMC_config(self, MDMC_config):
         self.MDMC_config = MDMC_config
 
@@ -482,11 +482,11 @@ class LammpsSimulation(object):
                 if ff[-5:] == "Water":
                     self.add_water_model(ngraph, ff)
                     mff = mff[:-6] # remove _Water from end of name
-                if ff[-3:] == "CO2":
-                    self.add_co2_model(ngraph, ff)
+                #if ff[-3:] == "CO2":
+                   # self.add_gas_model(ngraph, ff)
                 p = getattr(ForceFields, mff)(graph=self.subgraphs[m],
-                                         cutoff=self.options.cutoff,
-                                         h_bonding=h_bonding)
+                                          cutoff=self.options.cutoff,
+                                          h_bonding=h_bonding)
                 self.special_commands += p.special_commands()
 
     def assign_molecule_ids(self, graph):
@@ -1003,200 +1003,327 @@ class LammpsSimulation(object):
         count.append(1)
         return (len(count))
 
+#the real def construct_input_file
+#    def construct_input_file(self):
+#        """Input file construction based on user-defined inputs.
+#
+#        NB: This function is getting huge. We should probably break it
+#        up into logical sub-sections.
+#
+#        """
+#        inp_str = ""
+#
+#        #inp_str += "%-15s %s\n"%("log","log.%s append"%(self.name))
+#        inp_str += "%-15s %s\n"%("units","real")
+#        inp_str += "%-15s %s\n"%("atom_style","full")
+#        inp_str += "%-15s %s\n"%("boundary","p p p")
+#        inp_str += "\n"
+#        if(len(self.unique_pair_types.keys()) > 0):
+#            inp_str += "%-15s %s\n"%("pair_style", self.pair_style)
+#        if(len(self.unique_bond_types.keys()) > 0):
+#            inp_str += "%-15s %s\n"%("bond_style", self.bond_style)
+#        if(len(self.unique_angle_types.keys()) > 0):
+#            inp_str += "%-15s %s\n"%("angle_style", self.angle_style)
+#        if(len(self.unique_dihedral_types.keys()) > 0):
+#            inp_str += "%-15s %s\n"%("dihedral_style", self.dihedral_style)
+#        if(len(self.unique_improper_types.keys()) > 0):
+#            inp_str += "%-15s %s\n"%("improper_style", self.improper_style)
+#        if(self.kspace_style):
+#            inp_str += "%-15s %s\n"%("kspace_style", self.kspace_style)
+#        inp_str += "\n"
+#
+#        # general catch-all for extra force field commands needed.
+#        inp_str += "\n".join(list(set(self.special_commands)))
+#        inp_str += "\n"
+#        inp_str += "%-15s %s\n"%("box tilt","large")
+#        inp_str += "%-15s %s\n"%("read_data","data.%s"%(self.name))
+#
+#        if(not self.pair_in_data):
+#            inp_str += "#### Pair Coefficients ####\n"
+#            for pair,data in sorted(self.unique_pair_types.items()):
+#                n1, n2 = self.unique_atom_types[pair[0]][0], self.unique_atom_types[pair[1]][0]
+#
+#                try:
+#                    if pair[2] == 'hb':
+#                        inp_str += "%-15s %-4i %-4i %s # %s %s\n"%("pair_coeff",
+#                            pair[0], pair[1], data['h_bond_potential'],
+#                            self.graph.nodes[n1]['force_field_type'],
+#                            self.graph.nodes[n2]['force_field_type'])
+#                    elif pair[2] == 'table':
+#                        inp_str += "%-15s %-4i %-4i %s # %s %s\n"%("pair_coeff",
+#                            pair[0], pair[1], data['table_potential'],
+#                            self.graph.nodes[n1]['force_field_type'],
+#                            self.graph.nodes[n2]['force_field_type'])
+#                    else:
+#                        inp_str += "%-15s %-4i %-4i %s # %s %s\n"%("pair_coeff",
+#                            pair[0], pair[1], data['pair_potential'],
+#                            self.graph.nodes[n1]['force_field_type'],
+#                            self.graph.nodes[n2]['force_field_type'])
+#                except IndexError:
+#                    pass
+#            inp_str += "#### END Pair Coefficients ####\n\n"
+#
+#        inp_str += "\n#### Atom Groupings ####\n"
+#
+#        framework_atoms = list(self.graph.nodes())
+#        if(self.molecules)and(len(self.molecule_types.keys()) < 32):
+#            # lammps cannot handle more than 32 groups including 'all'
+#            total_count = 0
+#            for k,v in self.molecule_types.items():
+#                total_count += len(v)
+#            list_individual_molecules = True
+#            if total_count > 31:
+#                list_individual_molecules = False
+#
+#            idx = 1
+#            for mtype in list(self.molecule_types.keys()):
+#
+#                inp_str += "%-15s %-8s %s  "%("group", "%i"%(mtype), "id")
+#                all_atoms = []
+#                for j in self.molecule_types[mtype]:
+#                    all_atoms += self.subgraphs[j].nodes()
+#                for x in self.groups(all_atoms):
+#                    x = list(x)
+#                    if(len(x)>1):
+#                        inp_str += " %i:%i"%(x[0], x[-1])
+#                    else:
+#                        inp_str += " %i"%(x[0])
+#                inp_str += "\n"
+#                for atom in reversed(sorted(all_atoms)):
+#                    del framework_atoms[framework_atoms.index(atom)]
+#                mcount = 0
+#                if list_individual_molecules:
+#                    for j in self.molecule_types[mtype]:
+#                        if (self.subgraphs[j].molecule_images):
+#                            for molecule in self.subgraphs[j].molecule_images:
+#                                mcount += 1
+#                                inp_str += "%-15s %-8s %s  "%("group", "%i-%i"%(mtype, mcount), "id")
+#                                for x in self.groups(molecule):
+#                                    x = list(x)
+#                                   if(len(x)>1):
+#                                       inp_str += " %i:%i"%(x[0], x[-1])
+#                                   else:
+#                                       inp_str += " %i"%(x[0])
+#                               inp_str += "\n"
+#                       elif len(self.molecule_types[mtype]) > 1:
+#                           mcount += 1
+#                           inp_str += "%-15s %-8s %s  "%("group", "%i-%i"%(mtype, mcount), "id")
+#                           molecule = self.subgraphs[j].nodes()
+#                           for x in self.groups(molecule):
+#                               x = list(x)
+#                               if(len(x)>1):
+#                                    inp_str += " %i:%i"%(x[0], x[-1])
+#                               else:
+#                                   inp_str += " %i"%(x[0])
+#                           inp_str += "\n"
+#
+#           if(not framework_atoms):
+#               self.framework = False
+#       if(self.framework):
+#           inp_str += "%-15s %-8s %s  "%("group", "fram", "id")
+#           for x in self.groups(framework_atoms):
+#               x = list(x)
+#               if(len(x)>1):
+#                   inp_str += " %i:%i"%(x[0], x[-1])
+#                else:
+#                    inp_str += " %i"%(x[0])
+#            inp_str += "\n"
+#        inp_str += "#### END Atom Groupings ####\n\n"
+#
+#        if self.options.dump_dcd:
+#            inp_str += "%-15s %s\n"%("dump","%s_dcdmov all dcd %i %s_mov.dcd"%
+#                            (self.name, self.options.dump_dcd, self.name))
+#        elif self.options.dump_xyz:
+#            inp_str += "%-15s %s\n"%("dump","%s_xyzmov all xyz %i %s_mov.xyz"%
+#                                (self.name, self.options.dump_xyz, self.name))
+#            inp_str += "%-15s %s\n"%("dump_modify", "%s_xyzmov element %s"%(
+#                                     self.name,
+#                                     " ".join([self.unique_atom_types[key][1]['element']
+#                                                for key in sorted(self.unique_atom_types.keys())])))
+#        elif self.options.dump_lammpstrj:
+#            inp_str += "%-15s %s\n"%("dump","%s_lammpstrj all atom %i %s_mov.lammpstrj"%
+#                                (self.name, self.options.dump_lammpstrj, self.name))
+#
+#            # in the meantime we need to map atom id to element that will allow us to
+#            # post-process the lammpstrj file and create a cif out of each
+#            # snapshot stored in the trajectory
+#            f = open("lammpstrj_to_element.txt", "w")
+#            for key in sorted(self.unique_atom_types.keys()):
+#                f.write("%s\n"%(self.unique_atom_types[key][1]['element']))
+#            f.close()
     def construct_input_file(self):
-        """Input file construction based on user-defined inputs.
-
-        NB: This function is getting huge. We should probably break it
-        up into logical sub-sections.
-
-        """
+        """Construct LAMMPS input file with modular sections."""
         inp_str = ""
-
-        inp_str += "%-15s %s\n"%("log","log.%s append"%(self.name))
-        inp_str += "%-15s %s\n"%("units","real")
-        inp_str += "%-15s %s\n"%("atom_style","full")
-        inp_str += "%-15s %s\n"%("boundary","p p p")
+    
+        # General Settings
+        inp_str += "%-15s %s\n" % ("units", "real")
+        inp_str += "%-15s %s\n" % ("atom_style", "full")
+        inp_str += "%-15s %s\n" % ("boundary", "p p p")
         inp_str += "\n"
-        if(len(self.unique_pair_types.keys()) > 0):
-            inp_str += "%-15s %s\n"%("pair_style", self.pair_style)
-        if(len(self.unique_bond_types.keys()) > 0):
-            inp_str += "%-15s %s\n"%("bond_style", self.bond_style)
-        if(len(self.unique_angle_types.keys()) > 0):
-            inp_str += "%-15s %s\n"%("angle_style", self.angle_style)
-        if(len(self.unique_dihedral_types.keys()) > 0):
-            inp_str += "%-15s %s\n"%("dihedral_style", self.dihedral_style)
-        if(len(self.unique_improper_types.keys()) > 0):
-            inp_str += "%-15s %s\n"%("improper_style", self.improper_style)
-        if(self.kspace_style):
-            inp_str += "%-15s %s\n"%("kspace_style", self.kspace_style)
+    
+        # Force Field Styles (Dynamic)
+        if len(self.unique_pair_types.keys()) > 0:
+            inp_str += "%-15s %s\n" % ("pair_style", self.pair_style)
+        if len(self.unique_bond_types.keys()) > 0:
+            inp_str += "%-15s %s\n" % ("bond_style", self.bond_style)
+        if len(self.unique_angle_types.keys()) > 0:
+            inp_str += "%-15s %s\n" % ("angle_style", self.angle_style)
+        if len(self.unique_dihedral_types.keys()) > 0:
+            inp_str += "%-15s %s\n" % ("dihedral_style", self.dihedral_style)
+        if len(self.unique_improper_types.keys()) > 0:
+            inp_str += "%-15s %s\n" % ("improper_style", self.improper_style)
+        if self.kspace_style:
+            inp_str += "%-15s %s\n" % ("kspace_style", self.kspace_style)
         inp_str += "\n"
-
-        # general catch-all for extra force field commands needed.
-        inp_str += "\n".join(list(set(self.special_commands)))
+    
+        # General Commands
+        inp_str += "pair_modify     tail yes mix arithmetic\n"
+        inp_str += "dielectric      1.0\n"
+        inp_str += "special_bonds   lj/coul 0.0 0.0 1.0\n"
+        inp_str += "%-15s %s\n" % ("read_data", "data.%s" % (self.name))
         inp_str += "\n"
-        inp_str += "%-15s %s\n"%("box tilt","large")
-        inp_str += "%-15s %s\n"%("read_data","data.%s"%(self.name))
-
-        if(not self.pair_in_data):
-            inp_str += "#### Pair Coefficients ####\n"
-            for pair,data in sorted(self.unique_pair_types.items()):
-                n1, n2 = self.unique_atom_types[pair[0]][0], self.unique_atom_types[pair[1]][0]
-
-                try:
-                    if pair[2] == 'hb':
-                        inp_str += "%-15s %-4i %-4i %s # %s %s\n"%("pair_coeff",
-                            pair[0], pair[1], data['h_bond_potential'],
-                            self.graph.nodes[n1]['force_field_type'],
-                            self.graph.nodes[n2]['force_field_type'])
-                    elif pair[2] == 'table':
-                        inp_str += "%-15s %-4i %-4i %s # %s %s\n"%("pair_coeff",
-                            pair[0], pair[1], data['table_potential'],
-                            self.graph.nodes[n1]['force_field_type'],
-                            self.graph.nodes[n2]['force_field_type'])
-                    else:
-                        inp_str += "%-15s %-4i %-4i %s # %s %s\n"%("pair_coeff",
-                            pair[0], pair[1], data['pair_potential'],
-                            self.graph.nodes[n1]['force_field_type'],
-                            self.graph.nodes[n2]['force_field_type'])
-                except IndexError:
-                    pass
-            inp_str += "#### END Pair Coefficients ####\n\n"
-
-        inp_str += "\n#### Atom Groupings ####\n"
-
-        framework_atoms = list(self.graph.nodes())
-        if(self.molecules)and(len(self.molecule_types.keys()) < 32):
-            # lammps cannot handle more than 32 groups including 'all'
-            total_count = 0
-            for k,v in self.molecule_types.items():
-                total_count += len(v)
-            list_individual_molecules = True
-            if total_count > 31:
-                list_individual_molecules = False
-
-            idx = 1
-            for mtype in list(self.molecule_types.keys()):
-
-                inp_str += "%-15s %-8s %s  "%("group", "%i"%(mtype), "id")
-                all_atoms = []
-                for j in self.molecule_types[mtype]:
-                    all_atoms += self.subgraphs[j].nodes()
-                for x in self.groups(all_atoms):
-                    x = list(x)
-                    if(len(x)>1):
-                        inp_str += " %i:%i"%(x[0], x[-1])
-                    else:
-                        inp_str += " %i"%(x[0])
-                inp_str += "\n"
-                for atom in reversed(sorted(all_atoms)):
-                    del framework_atoms[framework_atoms.index(atom)]
-                mcount = 0
-                if list_individual_molecules:
-                    for j in self.molecule_types[mtype]:
-                        if (self.subgraphs[j].molecule_images):
-                            for molecule in self.subgraphs[j].molecule_images:
-                                mcount += 1
-                                inp_str += "%-15s %-8s %s  "%("group", "%i-%i"%(mtype, mcount), "id")
-                                for x in self.groups(molecule):
-                                    x = list(x)
-                                    if(len(x)>1):
-                                        inp_str += " %i:%i"%(x[0], x[-1])
-                                    else:
-                                        inp_str += " %i"%(x[0])
-                                inp_str += "\n"
-                        elif len(self.molecule_types[mtype]) > 1:
-                            mcount += 1
-                            inp_str += "%-15s %-8s %s  "%("group", "%i-%i"%(mtype, mcount), "id")
-                            molecule = self.subgraphs[j].nodes()
-                            for x in self.groups(molecule):
-                                x = list(x)
-                                if(len(x)>1):
-                                    inp_str += " %i:%i"%(x[0], x[-1])
-                                else:
-                                    inp_str += " %i"%(x[0])
-                            inp_str += "\n"
-
-            if(not framework_atoms):
-                self.framework = False
-        if(self.framework):
-            inp_str += "%-15s %-8s %s  "%("group", "fram", "id")
-            for x in self.groups(framework_atoms):
-                x = list(x)
-                if(len(x)>1):
-                    inp_str += " %i:%i"%(x[0], x[-1])
-                else:
-                    inp_str += " %i"%(x[0])
-            inp_str += "\n"
-        inp_str += "#### END Atom Groupings ####\n\n"
-
+    
+        # Thermo Settings
+        inp_str += "thermo          50\n"
+        inp_str += "thermo_style    custom step temp pe etotal vol density evdwl ecoul emol press\n"
+        inp_str += "\n"
+    
+        # Velocity Initialization
+        inp_str += "velocity        all create 300 2534526 mom yes rot yes dist gaussian\n"
+        inp_str += "\n"
+    
+        # Simulation Phases
+        # Heating
+        inp_str += "############ HEAT IN NVT #####################\n"
+        inp_str += "fix             1 all nvt temp 300 1000 100\n"
+        inp_str += "reset_timestep  0\n"
+        inp_str += "timestep        1\n"
+        inp_str += "run             100\n"
+        inp_str += "\n"
+    
+        # Constant High Temperature
+        inp_str += "#### CONSTANT TEMP 1000K\n"
+        inp_str += "fix             1 all nvt temp 1000 1000 100\n"
+        inp_str += "run             100\n"
+        inp_str += "\n"
+    
+        # Cooling
+        inp_str += "########### COOL THE SYSTEM\n"
+        inp_str += "fix             1 all nvt temp 1000 300 100\n"
+        inp_str += "run             100\n"
+        inp_str += "\n"
+    
+        # Equilibration
+        inp_str += "###############################################################################################\n"
+        inp_str += "unfix           1\n"
+        inp_str += "fix             1 all nvt temp 300 300 100\n"
+        inp_str += "run             100\n"
+        inp_str += "\n"
+    
+        # Final NPT Stabilization
+        inp_str += "##############################################################################################\n"
+        inp_str += "unfix           1\n"
+        inp_str += "velocity        all zero linear\n"
+        inp_str += "fix             1 all npt temp 300. 300. 200 iso 1.0 1.0 2000\n"
+        inp_str += "fix             2 all momentum 1 linear 1 1 1\n"
+        inp_str += "run             200\n"
+        inp_str += "write_data      final.data\n"
+        inp_str += "\n"
+    
+        # Output and Logging
         if self.options.dump_dcd:
-            inp_str += "%-15s %s\n"%("dump","%s_dcdmov all dcd %i %s_mov.dcd"%
-                            (self.name, self.options.dump_dcd, self.name))
+            inp_str += "%-15s %s\n" % ("dump", "%s_dcdmov all dcd %i %s_mov.dcd" % (
+                self.name, self.options.dump_dcd, self.name))
         elif self.options.dump_xyz:
-            inp_str += "%-15s %s\n"%("dump","%s_xyzmov all xyz %i %s_mov.xyz"%
-                                (self.name, self.options.dump_xyz, self.name))
-            inp_str += "%-15s %s\n"%("dump_modify", "%s_xyzmov element %s"%(
-                                     self.name,
-                                     " ".join([self.unique_atom_types[key][1]['element']
-                                                for key in sorted(self.unique_atom_types.keys())])))
-        elif self.options.dump_lammpstrj:
-            inp_str += "%-15s %s\n"%("dump","%s_lammpstrj all atom %i %s_mov.lammpstrj"%
-                                (self.name, self.options.dump_lammpstrj, self.name))
+            inp_str += "%-15s %s\n" % ("dump", "%s_xyzmov all xyz %i %s_mov.xyz" % (
+                self.name, self.options.dump_xyz, self.name))
+            inp_str += "%-15s %s\n" % ("dump_modify", "%s_xyzmov element %s" % (
+                self.name,
+                " ".join([self.unique_atom_types[key][1]['element']
+                          for key in sorted(self.unique_atom_types.keys())])))
+        inp_str += "### END PROCEDURE\n"
+    
+        return inp_str
+    
+    
+        if (self.options.Raptis):
+            # inp_str += "%-15s %s\n"%("log","log.%s append"%(self.name))
+            inp_str += "%-15s %s\n" % ("units", "real")
+            inp_str += "%-15s %s\n" % ("atom_style", "full")
+            inp_str += "%-15s %s\n" % ("boundary", "p p p")
+            inp_str += "\n"
+            
+            if(len(self.unique_pair_types.keys()) > 0):
+                inp_str += "%-15s %s\n" % ("pair_style", self.pair_style)
+            if(len(self.unique_bond_types.keys()) > 0):
+                inp_str += "%-15s %s\n" % ("bond_style", self.bond_style)
+            if(len(self.unique_angle_types.keys()) > 0):
+                inp_str += "%-15s %s\n" % ("angle_style", self.angle_style)
+            if(len(self.unique_dihedral_types.keys()) > 0):
+                inp_str += "%-15s %s\n" % ("dihedral_style", self.dihedral_style)
+            if(len(self.unique_improper_types.keys()) > 0):
+                inp_str += "%-15s %s\n" % ("improper_style", self.improper_style)
+            if(self.kspace_style):
+                inp_str += "%-15s %s\n" % ("kspace_style", self.kspace_style)
+            
+            inp_str += "%-15s %s\n" % ("pair_modify", "tail yes mix arithmetic")
+            inp_str += "%-15s %s\n" % ("dielectric", "1.0")
+            inp_str += "%-15s %s\n" % ("special_bonds", "lj/coul 0.0 0.0 1.0")
+            
+            # General catch-all for extra force field commands needed.
+            inp_str += "\n".join(list(set(self.special_commands)))
+            inp_str += "\n"
+            inp_str += "%-15s %s\n" % ("box tilt", "large")
+            inp_str += "%-15s %s\n" % ("read_data", "data.%s" % (self.name))
+            
+   
+        
+            # Kspace solver style
+            inp_str += "%-15s %s\n" % ("kspace_style", "pppm 0.0001")
+            
+            # Output options
+            inp_str += "%-15s %i\n" % ("thermo", 500)
+            inp_str += "%-15s %s\n" % ("thermo_style", "custom step temp pe etotal vol density evdwl ecoul emol press")
+            
+            # Initial velocity creation
+            inp_str += "%-15s %s\n" % ("velocity", "all create 111 2534526 mom yes rot yes dist gaussian")
+            
+            # Heating in NVT ensemble (use user_temp for the starting temperature)
+            inp_str += "%-15s %i %s %f\n" % ("fix 1 all nvt temp 111 1000 100")
+            inp_str += "%-15s %i\n" % ("reset_timestep 0")
+            inp_str += "%-15s %i\n" % ("timestep 1")
+            inp_str += "%-15s %s\n" % ("dump     nvtdump all dcd 1000 heat.dcd")
+            inp_str += "%-15s %i\n" % ("run    500")
+            
+            # Constant temperature of 1000K
+            inp_str += "%-15s %i %s %i\n" % ("fix 1 all nvt temp 1000 1000 100")
+            inp_str += "%-15s %i\n" % ("run    500")
+            
+            # Cooling the system (example of reducing temperature)
+            inp_str += "%-15s %i %s %f\n" % ("fix 1 all nvt temp 1000 111 0.9 100")  # Cooling down by 10%
+            inp_str += "%-15s %i\n" % ("run    500")
+            
+            # Unfix and continue with modified temperature
+            inp_str += "%-15s %i\n" % ("unfix 1")
+            inp_str += "%-15s %i %s %i\n" % ("fix 1 all nvt temp 111 111 100")
+            inp_str += "%-15s %i\n" % ("run    500")
+            
+            # Unfix and zero velocity
+            inp_str += "%-15s %i\n" % ("unfix 1")
+            inp_str += "%-15s %s\n" % ("velocity all zero linear")
+            
+         
+            
+            # NPT equilibration
+            inp_str += "%-15s %i %s %i\n" % ("fix             1 all npt temp 111. 111. 200 iso 1.0 1.0 2000")
+            inp_str += "%-15s %i %s\n" % ("fix             2 all momentum 1 linear 1 1 1")
+            inp_str += "%-15s %s\n" % ("dump            nptdump all dcd 1000 npt.dcd")
+            inp_str += "%-15s %i\n" % ("run    500")
+            inp_str += "%-15s %s\n" % ("write_data          final.data")
+            
+            inp_str += "### END PROCEDURE ###\n"     
+		
 
-            # in the meantime we need to map atom id to element that will allow us to
-            # post-process the lammpstrj file and create a cif out of each
-            # snapshot stored in the trajectory
-            f = open("lammpstrj_to_element.txt", "w")
-            for key in sorted(self.unique_atom_types.keys()):
-                f.write("%s\n"%(self.unique_atom_types[key][1]['element']))
-            f.close()
-
-        if (self.options.minimize):
-            box_min = "aniso"
-            min_style = "cg"
-            min_eval = 1e-6   # HKUST-1 will not minimize past 1e-11
-            max_iterations = 100000 # if the minimizer can't reach a minimum in this many steps,
-                                    # change the min_eval to something higher.
-            #inp_str += "%-15s %s\n"%("min_style","fire")
-            #inp_str += "%-15s %i %s\n"%("compute", 1, "all msd com yes")
-            #inp_str += "%-15s %-10s %s\n"%("variable", "Dx", "equal c_1[1]")
-            #inp_str += "%-15s %-10s %s\n"%("variable", "Dy", "equal c_1[2]")
-            #inp_str += "%-15s %-10s %s\n"%("variable", "Dz", "equal c_1[3]")
-            #inp_str += "%-15s %-10s %s\n"%("variable", "MSD", "equal c_1[4]")
-            #inp_str += "%-15s %s %s\n"%("fix", "output all print 1", "\"$(vol),$(cella),$(cellb),$(cellc),${Dx},${Dy},${Dz},${MSD}\"" +
-            #                                " file %s.min.csv title \"Vol,CellA,CellB,CellC,Dx,Dy,Dz,MSD\" screen no"%(self.name))
-            inp_str += "%-15s %s\n"%("min_style", min_style)
-            inp_str += "%-15s %s\n"%("print", "\"MinStep,CellMinStep,AtomMinStep,FinalStep,Energy,EDiff\"" +
-                                              " file %s.min.csv screen no"%(self.name))
-            inp_str += "%-15s %-10s %s\n"%("variable", "min_eval", "equal %.2e"%(min_eval))
-            inp_str += "%-15s %-10s %s\n"%("variable", "prev_E", "equal %.2f"%(50000.)) # set unreasonably high for first loop
-            inp_str += "%-15s %-10s %s\n"%("variable", "iter", "loop %i"%(max_iterations))
-            inp_str += "%-15s %s\n"%("label", "loop_min")
-
-            fix = self.fixcount()
-            inp_str += "%-15s %s\n"%("min_style", min_style)
-            inp_str += "%-15s %s\n"%("fix","%i all box/relax %s 0.0 vmax 0.01"%(fix, box_min))
-            inp_str += "%-15s %s\n"%("minimize","1.0e-15 1.0e-15 10000 100000")
-            inp_str += "%-15s %s\n"%("unfix", "%i"%fix)
-            inp_str += "%-15s %s\n"%("min_style", "fire")
-            inp_str += "%-15s %-10s %s\n"%("variable", "tempstp", "equal $(step)")
-            inp_str += "%-15s %-10s %s\n"%("variable", "CellMinStep", "equal ${tempstp}")
-            inp_str += "%-15s %s\n"%("minimize","1.0e-15 1.0e-15 10000 100000")
-            inp_str += "%-15s %-10s %s\n"%("variable", "AtomMinStep", "equal $(step)")
-            inp_str += "%-15s %-10s %s\n"%("variable", "temppe", "equal $(pe)")
-            inp_str += "%-15s %-10s %s\n"%("variable", "min_E", "equal abs(${prev_E}-${temppe})")
-            inp_str += "%-15s %s\n"%("print", "\"${iter},${CellMinStep},${AtomMinStep},${AtomMinStep}," +
-                                              "$(pe),${min_E}\"" +
-                                              " append %s.min.csv screen no"%(self.name))
-
-            inp_str += "%-15s %s\n"%("if","\"${min_E} < ${min_eval}\" then \"jump SELF break_min\"")
-            inp_str += "%-15s %-10s %s\n"%("variable", "prev_E", "equal ${temppe}")
-            inp_str += "%-15s %s\n"%("next", "iter")
-            inp_str += "%-15s %s\n"%("jump", "SELF loop_min")
-            inp_str += "%-15s %s\n"%("label", "break_min")
-
-           # inp_str += "%-15s %s\n"%("unfix", "output")
-        # delete bond types etc, for molecules that are rigid
         
         if (self.options.thermal_anneal):
             box_min = "aniso"

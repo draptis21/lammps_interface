@@ -94,8 +94,8 @@ class Options(object):
                                           "off.")
 
         simulation_group = parser.add_argument_group("Simulation options")
-        simulation_group.add_argument("--minimize", action="store_true",
-                                      dest="minimize",
+        simulation_group.add_argument("--Raptis", action="store_true",
+                                      dest="Raptis",
                                       default=False,
                                       help="Request input files necessary for"
                                       + " a full geometry optimization, including crystal cell and shape. Default off")
